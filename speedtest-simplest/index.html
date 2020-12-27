@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>SpeedTest-Simplest</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script type="text/javascript" src="jquery-3.2.1.min.js"></script>
+		<script type="text/javascript" src="jquery.ba-throttle-debounce.js"></script>
+	</head>
+	<script type="text/javascript" src="server_ip.js"></script>
+	<script>
+		var timeLimit=5;
+		var serverCount=server_ip.length;
+		var threadperserver=6;
+		var throughput;
+		var isFinished;
+		var globalTime;
+		function onload() {
+			init();
+		}
+		function init(){
+			throughput=new Array();
+			for(i=0;i<serverCount*threadperserver;i++)throughput.push(0);
+			isFinished=0;
+			globalTime=0;
+		}
+		function timerStart(){
+			intervalId=setInterval(function (){
+				globalTime+=100;
+				var result=0;
+				for(i=0;i<serverCount*threadperserver;i++)result+=throughput[i]/1024/1024*1000/globalTime;
+				document.getElementById("timeOutput").innerHTML=globalTime/1000;
+				document.getElementById("speedOutput").innerHTML=result;
+				if(globalTime>=timeLimit*1000){
+					isFinished=1;
+//					var result=0;
+//					checkResult=setInterval(function (){
+//						for(i=0;i<10;i++)result+=throughput[i]/1024/1024/timeLimit;
+//						clearInterval(checkResult);
+//					},1000);
+					clearInterval(intervalId);
+				}
+			},100);
+		}
+		function downloadThread(fname,i){
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", fname);
+			xhr.onprogress = function(e) {
+				throughput[i]=e.loaded;
+				if(isFinished){
+					xhr.abort();
+					return;
+				}
+			}
+			xhr.send();
+		}
+		function start(){
+			init();
+			timerStart();
+			for(i=0;i<server_ip.length;i++){
+				for(j=0;j<threadperserver;j++)
+					downloadThread("http://"+server_ip[i]+"/datafile?"+performance.now(),i*threadperserver+j);
+			}
+		}
+	</script>
+	<body onload="onload()">
+		<button onclick='start()'>start</button>
+		</br>
+		时间：<font id='timeOutput'>0</font>
+		</br>
+		速度：<font id='speedOutput'>0</font>
+		<!--<div id='showSpeedPoint'></div>-->
+	</body>
+</html>

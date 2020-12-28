@@ -10,7 +10,7 @@
 	</head>
 	<script type="text/javascript" src="server_ip.js"></script>
 	<script>
-		var timeLimit=5;
+		var timeLimit=3;
 		var serverCount=server_ip.length;
 		var threadperserver=6;
 		var throughput;
@@ -46,22 +46,22 @@
 				frontThroughput=throughputs[0];
 				frontTime=times[0];
 				nowresult=(nowThroughput-frontThroughput)/1000/(nowTime-frontTime)*8;
-				if(nowTime-times[0]<2000){
-					result=nowresult;
-					// speedSamples.push(result);
-				}
 				while(nowTime-times[0]>2000){
 					// result=Math.max(result,nowresult);
-					result=nowresult;
-					speedSamples.push(result);
 					times.splice(0,1);
 					throughputs.splice(0,1);
+				}
+				result=nowresult;
+				if(nowTime-startTime>=2000){
+					speedSamples.push(result);
+					speedSamples.sort();
+					result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
 				}
 				if(globalTime>=timeLimit*1000){
 					isFinished=1;
 					// 选90%点作为结果
-					speedSamples.sort();
-					result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
+					// speedSamples.sort();
+					// result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
 //					var result=0;
 //					checkResult=setInterval(function (){
 //						for(i=0;i<10;i++)result+=throughput[i]/1024/1024/timeLimit;

@@ -29,6 +29,7 @@
 			var startTime=performance.now();
 			var throughputs=new Array();
 			var times=new Array();
+			var speedSamples=new Array();
 			throughputs.push(0);
 			times.push(startTime);
 			var result=0;
@@ -45,16 +46,22 @@
 				frontThroughput=throughputs[0];
 				frontTime=times[0];
 				nowresult=(nowThroughput-frontThroughput)/1000/(nowTime-frontTime)*8;
-				if(nowTime-times[0]<=500)result=nowresult;
+				if(nowTime-times[0]<2000){
+					result=nowresult;
+					// speedSamples.push(result);
+				}
 				while(nowTime-times[0]>2000){
-					result=Math.max(result,nowresult);
+					// result=Math.max(result,nowresult);
+					result=nowresult;
+					speedSamples.push(result);
 					times.splice(0,1);
 					throughputs.splice(0,1);
 				}
-				document.getElementById("timeOutput").innerHTML=globalTime/1000;
-				document.getElementById("speedOutput").innerHTML=result;
 				if(globalTime>=timeLimit*1000){
 					isFinished=1;
+					// 选90%点作为结果
+					speedSamples.sort();
+					result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
 //					var result=0;
 //					checkResult=setInterval(function (){
 //						for(i=0;i<10;i++)result+=throughput[i]/1024/1024/timeLimit;
@@ -62,6 +69,8 @@
 //					},1000);
 					clearInterval(intervalId);
 				}
+				// document.getElementById("timeOutput").innerHTML=globalTime/1000;
+				document.getElementById("speedOutput").innerHTML=result;
 			},100);
 		}
 		function downloadThread(fname,i){
@@ -88,7 +97,7 @@
 	<body onload="onload()">
 		<button onclick='start()'>start</button>
 		</br>
-		时间：<font id='timeOutput'>0</font>
+		<!-- 时间：<font id='timeOutput'>0</font> -->
 		</br>
 		速度：<font id='speedOutput'>0</font>
 		<!--<div id='showSpeedPoint'></div>-->

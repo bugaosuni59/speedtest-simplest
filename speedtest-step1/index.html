@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>SpeedTest-Simplest</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script type="text/javascript" src="jquery-3.2.1.min.js"></script>
+		<script type="text/javascript" src="jquery.ba-throttle-debounce.js"></script>
+	</head>
+	<script>
+		var timeLimit=10;
+		var throughput;
+		var isFinished;
+		var globalTime;
+		function onload() {
+			init();
+		}
+		function init(){
+			isFinished=0;
+			globalTime=0;
+			throughput=0;
+		}
+		function timerStart(){
+			intervalId=setInterval(function (){
+				globalTime+=100;
+				var result=throughput/1024/1024*1000/globalTime*8;
+				document.getElementById("timeOutput").innerHTML=globalTime/1000;
+				document.getElementById("speedOutput").innerHTML=result;
+				if(globalTime>=timeLimit*1000){
+					isFinished=1;
+					clearInterval(intervalId);
+				}
+			},100);
+		}
+		function downloadThread(fname){
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", fname);
+			xhr.onprogress = function(e) {
+				throughput=e.loaded;
+				if(isFinished){
+					xhr.abort();
+					return;
+				}
+			}
+			xhr.send();
+		}
+		function start(){
+			init();
+			timerStart();
+			downloadThread("/datafile?"+performance.now());
+		}
+	</script>
+	<body onload="onload()">
+		<button onclick='start()'>start</button>
+		</br>
+		时间：<font id='timeOutput'>0</font>
+		</br>
+		速度：<font id='speedOutput'>0</font>
+		<!--<div id='showSpeedPoint'></div>-->
+	</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>SpeedTest-Simplest</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link href="c3/c3.css" rel="stylesheet">
+		<script src="c3/docs/js/d3-5.8.2.min.js" charset="utf-8"></script>
+		<script src="c3/c3.js"></script>
+		<script type="text/javascript" src="jquery-3.2.1.min.js"></script>
+		<script type="text/javascript" src="jquery.ba-throttle-debounce.js"></script>
+		<style>
+			.main{
+				text-align: center;
+				background-color: #fff;
+				border-radius: 20px;
+				width: 300px;
+				height: 350px;
+				margin: auto;
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+			}
+		</style>
+	</head>
+	<script type="text/javascript" src="server_ip.js"></script>
+	<script>
+		var timeLimit=5;
+		var serverCount=server_ip.length;
+		var threadperserver=6;
+		var throughput;
+		var isFinished;
+		var globalTime;
+		var timestep=100;
+		var chart;
+		var chartData;
+		function onload() {
+			init();
+		}
+		function init(){
+			chart = c3.generate({
+			    data: {
+			        columns: [
+			            ['speed'],
+			        ],
+//			        type: 'area-spline',
+			        colors: {
+			            speed: '#000000',
+//			        },types: {
+//		            	speed: 'area',
+		            }
+			    },
+			    axis: {
+			        x: {
+			        	show:false,
+//						type: 'category',
+			            tick: {
+			                format: function (x) { return ''; }
+			            }
+			        },
+			        y: {
+			        	show:false,
+			            tick: {
+			                format: function (x) { return ''; }
+			            }
+			        }
+			    },
+			    legend:{
+			    	show:false
+			    },
+			    point:{
+			    	show:false
+			    },
+			});
+			throughput=new Array();
+			for(i=0;i<serverCount*threadperserver;i++)throughput.push(0);
+			isFinished=0;
+			globalTime=0;
+			chartData=new Array();
+			chartData.push('speed');
+		}
+		function timerStart(){
+			var startTime=performance.now();
+			var throughputs=new Array();
+			var times=new Array();
+			var speedSamples=new Array();
+			throughputs.push(0);
+			times.push(startTime);
+			var result=0;
+			intervalId=setInterval(function (){
+				globalTime+=timestep;
+				var nowresult=0;
+				var nowTime=performance.now();
+				var nowThroughput=0;
+//				for(i=0;i<serverCount*threadperserver;i++)result+=throughput[i]/1024/1024*1000/realTime*8;
+				for(i=0;i<serverCount*threadperserver;i++)
+					nowThroughput+=throughput[i];
+				throughputs.push(nowThroughput);
+				times.push(nowTime);
+				frontThroughput=throughputs[0];
+				frontTime=times[0];
+				nowresult=(nowThroughput-frontThroughput)/1000/(nowTime-frontTime)*8;
+				result=nowresult;
+				speedSamples.push(result);
+				result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
+				chartData.push(result);
+//				console.log(chartData);
+//				console.log(speedSamples);
+				chart.load({
+			        columns: [
+			            chartData
+			        ]
+			    });
+				document.getElementById("timeOutput").innerHTML=globalTime/1000;
+				document.getElementById("speedOutput").innerHTML=result.toFixed(2);
+				while(nowTime-times[0]>2000&&times.length>3){
+					// result=Math.max(result,nowresult);
+					times.splice(0,1);
+					throughputs.splice(0,1);
+				}
+				if(globalTime>=timeLimit*1000){
+					isFinished=1;
+					clearInterval(intervalId);
+				}
+			},timestep);
+		}
+		function downloadThread(fname,i){
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", fname);
+			xhr.onprogress = function(e) {
+				throughput[i]=e.loaded;
+				if(isFinished){
+					xhr.abort();
+					return;
+				}
+			}
+			xhr.send();
+		}
+		function start(){
+			init();
+			timerStart();
+			for(i=0;i<server_ip.length;i++){
+				for(j=0;j<threadperserver;j++)
+					downloadThread("http://"+server_ip[i]+"/datafile?"+performance.now(),i*threadperserver+j);
+			}
+		}
+	</script>
+	<body onload="onload()">
+	<div class="main">
+		<!--<div style="width:70%;float:left;">-->
+		<div>
+			<div style="border:1px dashed #000">
+				<div id="chart"></div>
+			</div>
+		</div>
+		<!--<div style="width:30%;float:right;">-->
+		<div>
+			<br/>
+			<button onclick='start()' style="width:60px;height:30px;">start</button>
+			<div>Time:<font id='timeOutput'>0</font></div>
+			<div>Bandwidth:<font id='speedOutput'>0</font></div>
+		</div>
+	</div>
+	</body>
+</html>

@@ -98,13 +98,21 @@
 		    else convergence=0;
 		    var result=0;
 		    var cnt=0;
+		    var le=0;
+		    var ri=n;
 		    for(i=0;i<n;i++){
-		    	if(speedSamples[i]>=lastDown&&speedSamples[i]<=lastUp){
-		    		result+=speedSamples[i];
-		    		cnt++;
+		    	if(speedSamples[i]==lastDown){
+		    		le=i;
+		    		break;
 		    	}
 		    }
-		    result/=cnt;
+		    for(i=n-1;i>=0;i--){
+		    	if(speedSamples[i]==lastUp){
+		    		ri=i;
+		    		break;
+		    	}
+		    }
+			result=speedSamples[le+Math.ceil((ri-le+1)*0.8)];
 		    return result;
 		}
 		function init(){

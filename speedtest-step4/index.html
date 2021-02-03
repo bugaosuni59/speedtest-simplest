@@ -5,9 +5,6 @@
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link href="c3/c3.css" rel="stylesheet">
-		<script src="c3/docs/js/d3-5.8.2.min.js" charset="utf-8"></script>
-		<script src="c3/c3.js"></script>
 		<script type="text/javascript" src="jquery-3.2.1.min.js"></script>
 		<script type="text/javascript" src="jquery.ba-throttle-debounce.js"></script>
 		<style>
@@ -15,8 +12,8 @@
 				text-align: center;
 				background-color: #fff;
 				border-radius: 20px;
-				width: 300px;
-				height: 350px;
+				width: 500px;
+				height: 600px;
 				margin: auto;
 				position: absolute;
 				top: 0;
@@ -28,65 +25,124 @@
 	</head>
 	<script type="text/javascript" src="server_ip.js"></script>
 	<script>
-		var timeLimit=5;
+		var timeLimit=8;
+		var timeMinimum=3;
 		var serverCount=server_ip.length;
 		var threadperserver=6;
 		var throughput;
 		var isFinished;
 		var globalTime;
 		var timestep=100;
-		var chart;
-		var chartData;
+		var lineUp;
+		var lindDown;
+		var lastUp;
+		var lastDown;
+		var speedSamples;
+		var combo;
+		var svgData;
+		var comboLimit=6;
+		var convergence;
+		var jaccardSim=0.95;
+		var speedlimitId=0;
+		var Cwidth=400;
+		var Cheight=400;
+	    var svgns = "http://www.w3.org/2000/svg";
+	    var svger;
+	    // 最高点
+	    var speedlimit=[1,2,3,4,5,6,8,10,12,15,20,25,30,40,50,60,80,100,120,150,200,250,300,400,500,600,800,1000,1200,1500,2000,2500,3000,4000,5000,6000,8000,10000,12000,15000,20000,25000,30000,40000,50000,60000,80000,100000];
 		function onload() {
 			init();
+			var container = document.getElementById("container");
+		    svger = document.createElementNS(svgns, "svg");
+		    svger.setAttribute("width", container.clientWidth);
+		    svger.setAttribute("height", container.clientHeight);
+		    svger.setAttribute("viewBox", "0 0 " + container.clientWidth + " " + container.clientHeight);
+		    container.appendChild(svger);
+//			newline(0,0,200,300);
+//			clearline();
+//			newline(200,300,300,400);
+		}
+		function CIS(){
+			var n=speedSamples.length;
+			if(n==0){
+				return 0;
+			}
+			if(n==1){
+				return speedSamples[0];
+			}
+			speedSamples.sort();
+			// minimum: 
+			var k2l=0;
+			var k,l;
+			var minL=Math.max((speedSamples[n-1]-speedSamples[0])/n,speedSamples[n-1]/100);
+			var up=lastUp,down=lastDown;
+			for(i=0;i<n;i++){
+				if(speedSamples[i]==0)continue;
+				for(j=i+1;j<n;j++){
+					k=j-i+1;
+					l=speedSamples[j]-speedSamples[i];
+					if(l>minL&&k*k/l>k2l){
+						k2l=k*k/l;
+						up=speedSamples[j];
+						down=speedSamples[i];
+					}
+				}
+			}
+			lineUp=new Array();
+			lineDown=new Array();
+			lineUp.push("up");
+			lineDown.push("down");
+			for(i=0;i<n;i++)lineUp.push(up);
+			for(i=0;i<n;i++)lineDown.push(down);
+		    var jaccard=(Math.min(lastUp,up)-Math.max(lastDown,down))/(Math.max(lastUp,up)-Math.min(lastDown,down));
+		    if(jaccard>=jaccardSim)combo++;
+		    else combo=0;
+//		    console.log(jaccard + " " + combo + " "+convergence+" "+up+" "+down+" "+lastUp+" "+lastDown);
+		    lastUp=up;
+		    lastDown=down;
+		    if(combo>comboLimit)convergence=1;
+		    else convergence=0;
+		    var result=0;
+		    var cnt=0;
+		    var le=0;
+		    var ri=n-1;
+		    for(i=0;i<n;i++){
+		    	if(speedSamples[i]==lastDown){
+		    		le=i;
+		    		break;
+		    	}
+		    }
+		    for(i=n-1;i>=0;i--){
+		    	if(speedSamples[i]==lastUp){
+		    		ri=i;
+		    		break;
+		    	}
+		    }
+		    var respos=le+Math.ceil((ri-le+1)*0.8);
+		    respos=Math.min(respos,n-1);
+		    respos=Math.max(respos,0);
+			result=speedSamples[respos];
+		    return result;
 		}
 		function init(){
-			chart = c3.generate({
-			    data: {
-			        columns: [
-			            ['speed'],
-			        ],
-//			        type: 'area-spline',
-			        colors: {
-			            speed: '#000000',
-//			        },types: {
-//		            	speed: 'area',
-		            }
-			    },
-			    axis: {
-			        x: {
-			        	show:false,
-//						type: 'category',
-			            tick: {
-			                format: function (x) { return ''; }
-			            }
-			        },
-			        y: {
-			        	show:false,
-			            tick: {
-			                format: function (x) { return ''; }
-			            }
-			        }
-			    },
-			    legend:{
-			    	show:false
-			    },
-			    point:{
-			    	show:false
-			    },
-			});
+			lastUp=0;
+			speedlimitId=0;
+			lastDown=0;
+			combo=0;
+			convergence=0;
+			svgData=new Array();
+			svgData.push(0);
 			throughput=new Array();
 			for(i=0;i<serverCount*threadperserver;i++)throughput.push(0);
 			isFinished=0;
 			globalTime=0;
-			chartData=new Array();
-			chartData.push('speed');
 		}
 		function timerStart(){
 			var startTime=performance.now();
 			var throughputs=new Array();
 			var times=new Array();
-			var speedSamples=new Array();
+			speedSamples=new Array();
+			speedSamples.push(0);
 			throughputs.push(0);
 			times.push(startTime);
 			var result=0;
@@ -105,26 +161,22 @@
 				nowresult=(nowThroughput-frontThroughput)/1000/(nowTime-frontTime)*8;
 				result=nowresult;
 				speedSamples.push(result);
-				result=speedSamples[Math.min(Math.ceil(speedSamples.length*0.8),speedSamples.length-1)];
-				chartData.push(result);
-//				console.log(chartData);
-//				console.log(speedSamples);
-				chart.load({
-			        columns: [
-			            chartData
-			        ]
-			    });
-				document.getElementById("timeOutput").innerHTML=globalTime/1000;
-				document.getElementById("speedOutput").innerHTML=result.toFixed(2);
+				svgData.push(result);
+				result=CIS();
+				updateline();
+				document.getElementById("timeOutput").innerHTML=globalTime/1000 + " s";
+				document.getElementById("speedOutput").innerHTML=result.toFixed(2) + " Mbps";
 				while(nowTime-times[0]>2000&&times.length>3){
 					// result=Math.max(result,nowresult);
 					times.splice(0,1);
 					throughputs.splice(0,1);
 				}
-				if(globalTime>=timeLimit*1000){
+				if((globalTime>=timeMinimum*1000&&convergence)||globalTime>=timeLimit*1000){
 					isFinished=1;
+					newtext("Finished",container.clientWidth-90,container.clientHeight-20);
+//					document.getElementById("timeOutput").innerHTML+=" Finished";
 					clearInterval(intervalId);
-				}
+				} 
 			},timestep);
 		}
 		function downloadThread(fname,i){
@@ -147,22 +199,114 @@
 					downloadThread("http://"+server_ip[i]+"/datafile?"+performance.now(),i*threadperserver+j);
 			}
 		}
+		function updateline(){
+			clearline();
+			var maxSpeed=1;
+			for(i=0;i<svgData.length;i++){
+				maxSpeed=Math.max(maxSpeed,svgData[i]);
+			}
+			while(maxSpeed>speedlimit[speedlimitId]){
+				speedlimitId++;
+			}
+			maxSpeed=speedlimit[speedlimitId];
+			var aveTime=timeLimit;
+			var indexCount=aveTime*1000/timestep;
+			var dotstep=Cwidth/indexCount;
+			for(i=1;i<svgData.length;i++){
+				x1=dotstep*(i-1);
+				y1=Cheight-svgData[i-1]/maxSpeed*Cheight;
+				x2=dotstep*i;
+				y2=Cheight-svgData[i]/maxSpeed*Cheight;
+				newline(x1,y1,x2,y2);
+			}
+			yup=Cheight-lastUp/maxSpeed*Cheight;
+			ydown=Cheight-lastDown/maxSpeed*Cheight;
+//			newline(0,yup,svgData.length*dotstep,yup,"#66ccff");
+//			newline(0,ydown,svgData.length*dotstep,ydown,"#32CD32");
+			newline(0,yup,svgData.length*dotstep,yup,"#0000ff");
+			newline(0,ydown,svgData.length*dotstep,ydown,"#0000ff");
+			// draw CIS
+			{
+				newline(svgData.length*dotstep,yup,svgData.length*dotstep+10,yup);
+				newline(svgData.length*dotstep,ydown,svgData.length*dotstep+10,ydown);
+				newline(svgData.length*dotstep+10,yup,svgData.length*dotstep+10,ydown);
+				newtext("Crucial Interval",svgData.length*dotstep+20,(yup+ydown)/2);
+			}
+//			<text fill="#666666" font-size="20" x="10" y="20">Crucial Interval</text>
+		}
+		function clearline(){
+			var childs=svger.childNodes;
+			for(var i=childs.length-1;i>=0;i--){
+				svger.removeChild(childs[i]);
+			}
+			svger.style="overflow: visible;"
+		}
+	    function newline(x1,y1,x2,y2,color="black"){
+		    var line = document.createElementNS(svgns, "line");
+	        line.setAttribute("x1", x1);
+	        line.setAttribute("y1", y1);
+	        line.setAttribute("x2", x2);
+	        line.setAttribute("y2", y2);
+	        line.setAttribute("stroke", color);
+	        line.setAttribute("stroke-width", 2);
+	        line.setAttribute("fill", "none");
+	        svger.appendChild(line);
+	    }
+	    function newtext(str,x,y){
+//	    	console.log(y);
+		    var txt = document.createElementNS(svgns, "text");
+	        txt.setAttribute("x", x);
+	        txt.setAttribute("y", y+7);
+	        txt.setAttribute("font-size", 20);
+	        txt.setAttribute("fill", "#000000");
+	        txt.innerHTML=str;
+	        svger.appendChild(txt);
+	    }
 	</script>
 	<body onload="onload()">
 	<div class="main">
-		<!--<div style="width:70%;float:left;">-->
-		<div>
-			<div style="border:1px dashed #000">
-				<div id="chart"></div>
-			</div>
-		</div>
-		<!--<div style="width:30%;float:right;">-->
 		<div>
 			<br/>
-			<button onclick='start()' style="width:60px;height:30px;">start</button>
-			<div>Time:<font id='timeOutput'>0</font></div>
-			<div>Bandwidth:<font id='speedOutput'>0</font></div>
+			<button onclick='start()' style="width:100px;height:30px;">Start Testing</button>
+			<table border="0">
+				<tr>
+					<td style="text-align: right;width:320px;" valign="top">Bandwidth Testing Time:</td>
+					<td style="text-align: left;font-weight:bold"><font id='timeOutput'>0 s</font></td>
+				</tr>
+				<tr>
+					<td style="text-align: right;" valign="top">Estimated Download Bandwidth:</td>
+					<td style="text-align: left;font-weight:bold"><font id='speedOutput'>0 Mbps</font></td>
+				</tr>
+			</table>
 		</div>
+		<div id="container" style="overflow: visible;margin:0 auto;width:400px;height:400px;border:1px dashed #000000"></div>
+		<!--<div style="text-align: center;">Speed Trend</div>-->
+		<div style="text-align: center;">Speed Samples</div>
+		<br/>
+		<!--<div style="text-align: left;">Crucial Interval: a speed interval covers representative speed samples which high sample density and a large sample size</div>-->
+		<table border="0" style="width: 600px;">
+		<tr>
+			<td style="text-align: right;" valign="top">Crucial interval:</td>
+			<td style="text-align: left;" width="450">A speed interval covers the most representative speed samples, which means the product of sample size and sample density maximized.</td>
+		</tr>
+		</table>
+		<br/>
+		<br/>
+		<br/>
+		<table border="0" style="width: 600px;">
+		<tr>
+			<td style="text-align: right;" valign="top">Paper:</td>
+			<td style="text-align: left;">Fast and Light Bandwidth Testing for Internet Users <i>The 18th USENIX Symposium on Networked Systems Design and Implementation (<b>NSDI</b>)</i>, Apr. 12-14, 2021</td>
+		</tr>
+		<tr>
+			<td style="text-align: right;" valign="top">Authors:</td>
+			<td style="text-align: left;" width="500">Xinlei Yang, Xianlong Wang, Zhenhua Li, Feng Qian, Liangyi Gong, Rui Miao, Yunhao Liu, and Tianyin Xu</td>
+		</tr>
+		<tr>
+			<td style="text-align: right;" valign="top" width="120">Source code:</td>
+			<td style="text-align: left;"><a href="https://fastbts.github.io/">https://fastbts.github.io/</a></td>
+		</tr>
+		</table>
 	</div>
 	</body>
 </html>

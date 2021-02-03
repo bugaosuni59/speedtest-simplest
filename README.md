@@ -38,9 +38,7 @@
 
 1.不断记录速度采样点，并进行策略性筛选，如使用中位数等
 
-# Step 4
 
-1.绘制界面，更好地展示测速效果
 
 
 
@@ -50,4 +48,4 @@ Fast.com：动态开线程，2秒内浮动不超过5%则停止
 
 Speedtest.net：动态开线程，数据去掉一些较高的部分和较低的部分
 
-soeedtest-CIS中，使用了关键速度区间（Crucial Interval Sampling）进行过滤
+soeedtest-CIS中，使用了关键速度区间（Crucial Interval Sampling）进行过滤，并绘制了界面
